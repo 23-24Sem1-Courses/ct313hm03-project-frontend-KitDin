@@ -60,15 +60,16 @@
 
             <div class="list">
 
-                <div @mouseover="setPostHoverState(post.id, true)" @mouseout="setPostHoverState(post.id, false)"
-                    class="listpost" v-for="(post, index) in posts" :key="post.id">
+                <div @mouseover="setPostHoverState(post.content.POST_Id, true)"
+                    @mouseout="setPostHoverState(post.content.POST_Id, false)" class="listpost"
+                    v-for="(post, index) in posts" :key="post.content.POST_Id">
                     <div class="display-none" :class="{ 'hover': postHoverStates[index] }">
                         <i class="bi bi-heart-fill icon-hover"></i>
-                        <span class="like">{{ post.like }}</span>
+                        <span class="like">10</span>
                         <i class="bi bi-chat-fill icon-hover"></i>
-                        <span class="comment">{{ post.comment }}</span>
+                        <span class="comment">15</span>
                     </div>
-                    <img class="imgp" :src="loadimg(post)" alt="">
+                    <img class="imgp" :src="loadimgpost(post)" alt="">
                     <i class="bi bi-images icon"></i>
                 </div>
             </div>
@@ -92,26 +93,7 @@ export default {
             postHoverStates: [],
             isCurrentUser: true,
             showLoader: false,
-            posts: [
-                { id: 1, USER_AvatarURL: "user1.png", like: 17, comment: 9 },
-                { id: 2, USER_AvatarURL: "user2.png", like: 18, comment: 9 },
-                { id: 3, USER_AvatarURL: "user3.png", like: 19, comment: 9 },
-                { id: 4, USER_AvatarURL: "user4.png", like: 1, comment: 9 },
-                { id: 5, USER_AvatarURL: "user5.png", like: 12, comment: 9 },
-                { id: 6, USER_AvatarURL: "user6.png", like: 18, comment: 9 },
-                { id: 7, USER_AvatarURL: "user7.png", like: 110, comment: 9 },
-                { id: 8, USER_AvatarURL: "user8.png", like: 8, comment: 9 },
-                { id: 9, USER_AvatarURL: "user9.png", like: 7, comment: 9 },
-                { id: 11, USER_AvatarURL: "user10.png", like: 17, comment: 9 },
-                { id: 12, USER_AvatarURL: "user11.png", like: 0, comment: 9 },
-                { id: 13, USER_AvatarURL: "user12.png", like: 0, comment: 9 },
-                { id: 14, USER_AvatarURL: "user13.png", like: 7, comment: 9 },
-                { id: 15, USER_AvatarURL: "user14.png", like: 9, comment: 9 },
-                { id: 16, USER_AvatarURL: "user15.png", like: 78, comment: 9 },
-                { id: 17, USER_AvatarURL: "user16.png", like: 9, comment: 9 },
-                { id: 18, USER_AvatarURL: "user17.png", like: 5, comment: 9 },
-                { id: 19, USER_AvatarURL: "user18.png", like: 2, comment: 9 },
-            ]
+            posts: []
         }
     }, components: {
         Nav, Footer
@@ -120,10 +102,15 @@ export default {
             if (user && user.USER_AvatarURL) {
                 return require(`../../../server/public/uploads/avatar/${user.USER_AvatarURL}`);
             }
+        }, loadimgpost(post) {
+            if (post && post.images[0]) {
+                return require(`../../../server/public/uploads/post/${post.images[0]}`);
+            }
         },
         setPostHoverState(postId, isHovered) {
-            const index = this.posts.findIndex(post => post.id === postId);
+            const index = this.posts.findIndex(post => post.content.POST_Id === postId);
             this.$set(this.postHoverStates, index, isHovered);
+            // console.log(index);
         },
     }, async mounted() {
         this.postHoverStates = new Array(this.posts.length).fill(false)
@@ -131,12 +118,14 @@ export default {
             // Nếu có route param idother, bạn đang xem trang cá nhân của người khác
             this.user_other = (await AuthenticationService.getUser(this.$route.params.idother)).data;
             this.isCurrentUser = false;
+            this.posts = (await AuthenticationService.getpost(this.user_other_params_id)).data;
             console.log(this.$route.params.idother)
         } else {
             // Nếu không có route param idother, bạn đang xem trang cá nhân của người dùng hiện tại
             this.user_personal = (await AuthenticationService.getUser(this.$route.params.id)).data;
+            this.posts = (await AuthenticationService.getpost(this.user_personal_params_id)).data;
             this.isCurrentUser = true;
-            console.log(this.$route.params.id)
+            console.log(this.posts[0].images[0])
         }
     }, computed: {
         currentPosts() {
@@ -163,7 +152,6 @@ export default {
     }, beforeRouteLeave(to, from, next) {
         // Show a loader before leaving the current page
         this.showLoader = true;
-
         // Continue the route navigation
         next();
     },

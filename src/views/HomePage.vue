@@ -74,7 +74,8 @@ export default {
                 "user4.png",
                 "user5.png",
                 "user6.png",
-            ]
+            ],
+            posts: []
         }
     },
     components: {

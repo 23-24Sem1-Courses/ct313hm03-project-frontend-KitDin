@@ -32,5 +32,11 @@ export default {
         "Content-Type": "multipart/form-data"
       }
     });
+  },
+  getpost(id) {
+    return Api().get(`status/img/${id}`);
+  },
+  getpost() {
+    return Api().get();
   }
 };
