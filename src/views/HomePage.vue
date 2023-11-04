@@ -36,9 +36,20 @@
                 <span class="like" v-if="post.countLike !== 0">{{ post.countLike }} likes</span>
 
                 <div class="HC-Post-status">
-                    <span @click="goProfile(post.content.USER_Id)" class="HC-Post-username name2">{{
-                        post.content.USER_NickName }}</span>
-                    <span class="status">{{ post.content.POST_Content }}</span>
+                    <span @click="goProfile(post.content.USER_Id)" class="HC-Post-username name2">
+                        {{ post.content.USER_NickName }}</span>
+                    <span class="status">
+                        <span v-if="post.showFullContent">
+                            {{ shortenContent(post.content.POST_Content) }}
+                        </span>
+                        <span v-else>
+                            {{ post.content.POST_Content }}</span>
+                        <span class="option-s-h" v-if="post.showFullContent">
+                            <p>...</p>
+                            <p @click="post.showFullContent = false">more</p>
+                        </span>
+
+                    </span>
                 </div>
                 <div class="allcomment">View 16 comment</div>
                 <input class="inputcomment" type="text" @pointerenter="" placeholder="Add a comment...">
@@ -101,6 +112,7 @@ export default {
                         isHeartFilled: isCurrentUserLiked,
                         activeIndex: 0,
                         scrollTimeout: null,
+                        showFullContent: this.isContentOverFifteenWords(post.content.POST_Content)
 
                     };
                 });
@@ -149,7 +161,14 @@ export default {
                     post.activeIndex = Math.floor(scrollPosition / imageWidth);
                 }, 0);
             }
-        },
+        }, shortenContent(content) {
+            const words = content.split(' '); // Tách chuỗi thành mảng các từ
+            const shortenedWords = words.slice(0, 15); // Lấy 15 từ đầu tiên
+            return shortenedWords.join(' '); // Kết hợp lại để tạo nội dung cắt giảm
+        }, isContentOverFifteenWords(content) {
+            const words = content.split(' '); // Tách chuỗi thành mảng các từ
+            return words.length > 15; // Kiểm tra xem mảng có nhiều hơn 15 từ hay không
+        }
     },
     async mounted() {
         this.user = (await AuthenticationService.getUser(this.userid)).data
@@ -162,13 +181,10 @@ export default {
                 isHeartFilled: isCurrentUserLiked,
                 activeIndex: 0,
                 scrollTimeout: null,
-                showFullContent: false
+                showFullContent: this.isContentOverFifteenWords(post.content.POST_Content)
             };
         });
 
-        if (this.posts[0].content.POST_Content) {
-            console.log(this.posts[0].content.POST_Content.length);
-        }
     }
 }
 </script>
@@ -235,7 +251,7 @@ export default {
             }
 
             .bi-heart-fill {
-                color: violet;
+                color: red;
             }
 
         }
@@ -343,6 +359,16 @@ export default {
     font-weight: 500;
     font-size: 14px;
     margin-bottom: 8px;
+    cursor: pointer;
+}
+
+
+.option-s-h p {
+    margin: 0;
+    color: #737373;
+}
+
+.option-s-h p:last-child {
     cursor: pointer;
 }
 </style>
