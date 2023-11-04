@@ -56,10 +56,7 @@
                 </div>
             </div>
 
-
-
             <div class="list">
-
                 <div @mouseover="setPostHoverState(post.content.POST_Id, true)"
                     @mouseout="setPostHoverState(post.content.POST_Id, false)" class="listpost"
                     v-for="(post, index) in posts" :key="post.content.POST_Id">
@@ -87,9 +84,9 @@ export default {
     data() {
         return {
             user_other_params_id: this.$router.history.current.params.idother ? this.$router.history.current.params.idother : '',
+            user_personal_params_id: this.$router.history.current.params.id,
             user_other: [],
             user_personal: [],
-            user_personal_params_id: this.$router.history.current.params.id,
             postHoverStates: [],
             isCurrentUser: true,
             showLoader: false,
@@ -110,22 +107,19 @@ export default {
         setPostHoverState(postId, isHovered) {
             const index = this.posts.findIndex(post => post.content.POST_Id === postId);
             this.$set(this.postHoverStates, index, isHovered);
-            // console.log(index);
         },
     }, async mounted() {
         this.postHoverStates = new Array(this.posts.length).fill(false)
         if (this.$route.params.idother) {
-            // Nếu có route param idother, bạn đang xem trang cá nhân của người khác
             this.user_other = (await AuthenticationService.getUser(this.$route.params.idother)).data;
             this.isCurrentUser = false;
-            this.posts = (await AuthenticationService.getpost(this.user_other_params_id)).data;
+            this.posts = (await AuthenticationService.getpost(this.$route.params.idother)).data;
             console.log(this.$route.params.idother)
         } else {
-            // Nếu không có route param idother, bạn đang xem trang cá nhân của người dùng hiện tại
             this.user_personal = (await AuthenticationService.getUser(this.$route.params.id)).data;
-            this.posts = (await AuthenticationService.getpost(this.user_personal_params_id)).data;
+            this.posts = (await AuthenticationService.getpost(this.$route.params.id)).data;
             this.isCurrentUser = true;
-            console.log(this.posts[0].images[0])
+
         }
     }, computed: {
         currentPosts() {

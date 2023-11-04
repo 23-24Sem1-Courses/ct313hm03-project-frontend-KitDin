@@ -3,40 +3,47 @@
         <Header></Header>
         <div class="HomeContent">
             <Nav></Nav>
-            <div class="HC-Post">
+
+            <div class="HC-Post" v-for="post in posts" :key="post.content.POST_Id">
                 <div class="HC-Post-infor">
-                    <img :src="loadimg(user)" class="avatar">
-                    <p class="HC-Post-username name1">Ruych.im <span class="username-time">• 19h</span></p>
+                    <img @click="goProfile(post.content.USER_Id)" :src="loadimg(post.content)" class="avatar">
+                    <p @click="goProfile(post.content.USER_Id)" class="HC-Post-username name1"> {{
+                        post.content.USER_NickName }} <span class="username-time">•
+                            {{ timeRequest(post.content.POST_Time) }}</span></p>
                 </div>
-                <div class="HC-Post-imgs">
-                    <div class="img-container" v-for="(img, index) in imgs" :key="index">
+                <div class="HC-Post-imgs" ref="imageContainer" @scroll="onScroll(post, $event)">
+                    <div class="img-container" v-for="(img, index) in post.images" :key="index">
                         <img :src="loadimgpost(img)" class="img">
                     </div>
-                    <div style="color: brown; margin-left: 5px;">End</div>
-                    <div class="HC-Post-scroll-bar">
-                        <div class="HC-Post-scroll-bar-dots">
-                            <div class="HC-Post-scroll-bar-dot" v-for="(img, index) in imgs" :key="index"></div>
+                    <div style="color: brown; margin-left: 5px;">...</div>
+                </div>
+
+                <div class="HC-Post-scroll-bar">
+                    <div class="HC-Post-scroll-bar-dots">
+                        <div class="HC-Post-scroll-bar-dot" @click="goToImg(post, index)"
+                            :class="{ 'activeWhite': index === post.activeIndex }" v-for="(img, index) in post.images"
+                            :key="index">
                         </div>
                     </div>
                 </div>
+
                 <div class="HC-Post-icon">
-                    <i @click="toggleHeart()"
-                        :class="['bi', { 'bi-heart': !isHeartFilled }, 'icon', { 'bi-heart-fill': isHeartFilled }]"></i>
+                    <i @click="toggleHeart(post)"
+                        :class="['bi', 'icon', { 'bi-heart': !post.isHeartFilled, 'bi-heart-fill': post.isHeartFilled }]"></i>
                     <i class="bi bi-chat icon"></i>
                 </div>
+
+                <span class="like" v-if="post.countLike !== 0">{{ post.countLike }} likes</span>
+
                 <div class="HC-Post-status">
-                    <span class="HC-Post-username name2">Ruych.im</span>
-                    <span class="status">Hello choi cung nhoa</span>
-                    <div class="status-hashtag">
-                        <span class="hashtag">#maiyeu</span>
-                        <span class="hashtag">#vlog</span>
-                        <span class="hashtag">#choicung</span>
-                        <span class="hashtag">#vuide</span>
-                    </div>
+                    <span @click="goProfile(post.content.USER_Id)" class="HC-Post-username name2">{{
+                        post.content.USER_NickName }}</span>
+                    <span class="status">{{ post.content.POST_Content }}</span>
                 </div>
                 <div class="allcomment">View 16 comment</div>
                 <input class="inputcomment" type="text" @pointerenter="" placeholder="Add a comment...">
             </div>
+
             <NavRequestFriend></NavRequestFriend>
         </div>
     </div>
@@ -48,17 +55,6 @@ import Nav from "../components/Nav.vue"
 import NavRequestFriend from "../components/NavRequestFriend.vue"
 import AuthenticationService from "../services/AuthenticationService"
 
-const handleScroll = (event) => {
-    const scrollPercent = event.target.scrollLeft / (imgs.length - 1);
-    const currentDot = Math.floor(scrollPercent * 3);
-
-    const dots = document.querySelectorAll(".HC-Post-scroll-bar-dot");
-    for (let i = 0; i < dots.length; i++) {
-        dots[i].classList.remove("active");
-    }
-
-    dots[currentDot].classList.add("active");
-};
 
 export default {
     name: 'Home',
@@ -68,14 +64,7 @@ export default {
             isHeartFilled: false,
             userid: this.$router.history.current.params.id,
             user: [],
-            imgs: [
-                "user8.png",
-                "user1.png",
-                "user4.png",
-                "user5.png",
-                "user6.png",
-            ],
-            posts: []
+            posts: [],
         }
     },
     components: {
@@ -85,22 +74,101 @@ export default {
     },
     props: ['id'],
     methods: {
-        handleScroll,
-        loadimgpost(img) {
-            return require(`../../../server/public/uploads/avatar/${img}`);
-        },
-        toggleHeart() {
-            this.isHeartFilled = !this.isHeartFilled; // Chuyển đổi trạng thái trái tim
-            console.log(this.isHeartFilled)
+        async toggleHeart(postAll) {
+            const postIndex = this.posts.findIndex(post => post.content.POST_Id === postAll.content.POST_Id);
+
+            if (postIndex > -1) {
+                this.$set(this.posts[postIndex], 'isHeartFilled', !this.posts[postIndex].isHeartFilled);
+            }
+
+            try {
+                if (postAll.isHeartFilled) {
+                    console.log("đã like " + postAll.isHeartFilled);
+                    await AuthenticationService.like(this.userid, {
+                        POST_Id: postAll.content.POST_Id
+                    });
+                } else if (!postAll.isHeartFilled) {
+                    console.log("un like " + postAll.isHeartFilled);
+                    await AuthenticationService.unlike(this.userid, {
+                        POST_Id: postAll.content.POST_Id
+                    });
+                }
+                const updatedPosts = (await AuthenticationService.getposts()).data;
+                this.posts = updatedPosts.map(post => {
+                    const isCurrentUserLiked = post.likes.includes(this.userid);
+                    return {
+                        ...post,
+                        isHeartFilled: isCurrentUserLiked,
+                        activeIndex: 0,
+                        scrollTimeout: null,
+
+                    };
+                });
+            } catch (error) {
+
+            }
         }, loadimg(user) {
             if (user && user.USER_AvatarURL) {
                 return require(`../../../server/public/uploads/avatar/${user.USER_AvatarURL}`);
             }
-        }
+        }, loadimgpost(img) {
+            if (img) {
+                return require(`../../../server/public/uploads/post/${img}`);
+            }
+        }, timeRequest(POST_Time) {
+            const fixedDate = new Date(POST_Time);
+            const currentDate = new Date();
+            const timeDifference = currentDate - fixedDate;
+            const seconds = Math.floor(timeDifference / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (seconds > 0 && seconds <= 60) {
+                return seconds + "s"
+            } else if (minutes > 0 && minutes <= 60) {
+                return minutes + "m"
+            } else if (hours > 0 && hours <= 24) {
+                return hours + "h"
+            } else if (days > 0) {
+                return days + "d"
+            }
+        }, goProfile(userId) {
+            if (userId == this.userid) {
+                this.$router.push(`/profile/${this.userid}`)
+            } else {
+                this.$router.push(`/profile/${this.userid}/${userId}`)
+            }
+        }, onScroll(post, event) {
+            if (event && event.target) {
+                clearTimeout(post.scrollTimeout);
+                post.scrollTimeout = setTimeout(() => {
+                    const container = event.target;
+                    const scrollPosition = container.scrollLeft;
+                    const imageWidth = container.offsetWidth;
+                    post.activeIndex = Math.floor(scrollPosition / imageWidth);
+                }, 0);
+            }
+        },
     },
     async mounted() {
         this.user = (await AuthenticationService.getUser(this.userid)).data
-        console.log(this.id);
+        // this.posts = (await AuthenticationService.getposts()).data
+        const postsData = (await AuthenticationService.getposts()).data;
+        this.posts = postsData.map(post => {
+            const isCurrentUserLiked = post.likes.includes(this.userid);
+            return {
+                ...post,
+                isHeartFilled: isCurrentUserLiked,
+                activeIndex: 0,
+                scrollTimeout: null,
+                showFullContent: false
+            };
+        });
+
+        if (this.posts[0].content.POST_Content) {
+            console.log(this.posts[0].content.POST_Content.length);
+        }
     }
 }
 </script>
@@ -130,6 +198,7 @@ export default {
                 height: 42px;
                 object-fit: cover;
                 border-radius: 50%;
+                cursor: pointer;
             }
 
             .HC-Post-username {
@@ -143,6 +212,7 @@ export default {
                 cursor: pointer;
 
                 .username-time {
+                    cursor: default;
                     font-weight: 500;
                     color: #737373;
                 }
@@ -186,7 +256,9 @@ export default {
                 cursor: pointer;
             }
 
-            .status {}
+            .status {
+                margin-left: 3px;
+            }
 
             .status-hashtag {
                 .hashtag {
@@ -219,6 +291,7 @@ export default {
 }
 
 .HC-Post-imgs {
+    position: relative;
     width: 469px;
     height: 589px;
     border-radius: 15px;
@@ -227,9 +300,7 @@ export default {
     overflow-x: scroll;
     scroll-snap-type: x mandatory;
     -ms-overflow-style: none;
-    /* IE and Edge */
     scrollbar-width: none;
-    /* position: relative; */
 
 }
 
@@ -244,12 +315,8 @@ export default {
 }
 
 .HC-Post-scroll-bar {
-    width: 469px;
-    height: 30px;
-    border-radius: 15px;
-    /* background-color: #ccc */
-    bottom: 150px;
-    position: absolute;
+    position: relative;
+    bottom: 22px;
 }
 
 .HC-Post-scroll-bar-dots {
@@ -259,11 +326,24 @@ export default {
 }
 
 .HC-Post-scroll-bar-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 5px;
-    background-color: #ccc;
-    margin: 0 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #aeacac;
+    margin: 0 2px;
+}
+
+.activeWhite {
+    background-color: white;
+
+}
+
+.like {
+    display: block;
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
 }
 </style>
 

@@ -36,7 +36,13 @@ export default {
   getpost(id) {
     return Api().get(`status/img/${id}`);
   },
-  getpost() {
-    return Api().get();
+  getposts() {
+    return Api().get(`status/img`);
+  },
+  like(id, post) {
+    return Api().post(`status/img/${id}`, post);
+  },
+  unlike(id, postid) {
+    return Api().put(`status/img/${id}`, postid);
   }
 };
