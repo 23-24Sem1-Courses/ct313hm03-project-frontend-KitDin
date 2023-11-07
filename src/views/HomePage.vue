@@ -30,7 +30,7 @@
                 <div class="HC-Post-icon">
                     <i @click="toggleHeart(post)"
                         :class="['bi', 'icon', { 'bi-heart': !post.isHeartFilled, 'bi-heart-fill': post.isHeartFilled }]"></i>
-                    <i class="bi bi-chat icon"></i>
+                    <i @click="test(post)" class="bi bi-chat icon"></i>
                 </div>
 
                 <span class="like" v-if="post.countLike !== 0">{{ post.countLike }} likes</span>
@@ -51,11 +51,16 @@
 
                     </span>
                 </div>
-                <div class="allcomment">View 16 comment</div>
+                <div @click="showCommentBar(post)" class="allcomment">View 16 comment</div>
                 <input class="inputcomment" type="text" @pointerenter="" placeholder="Add a comment...">
             </div>
 
             <NavRequestFriend></NavRequestFriend>
+
+
+            <div v-if="showComment" @click="showCommentBar" class="Comment-prevent"></div>
+            <CommentPost v-if="showComment" :postId="postId_Comment" :userid="userid" :loadImgPost="loadimgpost"
+                :toggleHeart="toggleHeart" :loadImgUser="loadimg" :timeRequest="timeRequest" @updatePost="updatePost" />
         </div>
     </div>
 </template>
@@ -65,8 +70,7 @@ import Footer from "../components/Footer.vue"
 import Nav from "../components/Nav.vue"
 import NavRequestFriend from "../components/NavRequestFriend.vue"
 import AuthenticationService from "../services/AuthenticationService"
-
-
+import CommentPost from "../components/CommentPost.vue"
 export default {
     name: 'Home',
     data() {
@@ -76,46 +80,61 @@ export default {
             userid: this.$router.history.current.params.id,
             user: [],
             posts: [],
+            postId_Comment: [],
+            showComment: false,
         }
     },
     components: {
         Footer,
         Nav,
-        NavRequestFriend
+        NavRequestFriend,
+        CommentPost
     },
     props: ['id'],
     methods: {
+        test(post) {
+            console.log(post);
+        },
         async toggleHeart(postAll) {
-            const postIndex = this.posts.findIndex(post => post.content.POST_Id === postAll.content.POST_Id);
+            if (this.posts) {
+                const postIndex = this.posts.findIndex(post => post.content.POST_Id === postAll.content.POST_Id);
 
-            if (postIndex > -1) {
-                this.$set(this.posts[postIndex], 'isHeartFilled', !this.posts[postIndex].isHeartFilled);
+                if (postIndex > -1) {
+                    this.$set(this.posts[postIndex], 'isHeartFilled', !this.posts[postIndex].isHeartFilled);
+                }
             }
 
             try {
+
                 if (postAll.isHeartFilled) {
-                    console.log("đã like " + postAll.isHeartFilled);
+                    console.log("like");
+
                     await AuthenticationService.like(this.userid, {
                         POST_Id: postAll.content.POST_Id
                     });
+
                 } else if (!postAll.isHeartFilled) {
-                    console.log("un like " + postAll.isHeartFilled);
+                    console.log("un like");
+
                     await AuthenticationService.unlike(this.userid, {
                         POST_Id: postAll.content.POST_Id
                     });
-                }
-                const updatedPosts = (await AuthenticationService.getposts()).data;
-                this.posts = updatedPosts.map(post => {
-                    const isCurrentUserLiked = post.likes.includes(this.userid);
-                    return {
-                        ...post,
-                        isHeartFilled: isCurrentUserLiked,
-                        activeIndex: 0,
-                        scrollTimeout: null,
-                        showFullContent: this.isContentOverFifteenWords(post.content.POST_Content)
 
-                    };
-                });
+                }
+
+                const updatedPosts = (await AuthenticationService.getposts()).data;
+                if (this.posts) {
+                    this.posts = updatedPosts.map(post => {
+                        const isCurrentUserLiked = post.likes.includes(this.userid);
+                        return {
+                            ...post,
+                            isHeartFilled: isCurrentUserLiked,
+                            activeIndex: 0,
+                            scrollTimeout: null,
+                            showFullContent: this.isContentOverFifteenWords(post.content.POST_Content)
+                        };
+                    });
+                }
             } catch (error) {
 
             }
@@ -140,11 +159,24 @@ export default {
                 return seconds + "s"
             } else if (minutes > 0 && minutes <= 60) {
                 return minutes + "m"
-            } else if (hours > 0 && hours <= 24) {
+            } else if (hours > 0 && hours < 24) {
                 return hours + "h"
-            } else if (days > 0) {
+            } else if (days > 0 && days < 7) {
                 return days + "d"
+            } else if (days > 3) {
+                return this.convertToCustomDate(fixedDate)
             }
+        }, convertToCustomDate(inputDate) {
+            const months = [
+                "JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+                "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"
+            ];
+
+            const date = new Date(inputDate);
+            const month = months[date.getUTCMonth()];
+            const day = date.getUTCDate();
+
+            return `${month} ${day}`;
         }, goProfile(userId) {
             if (userId == this.userid) {
                 this.$router.push(`/profile/${this.userid}`)
@@ -168,14 +200,21 @@ export default {
         }, isContentOverFifteenWords(content) {
             const words = content.split(' '); // Tách chuỗi thành mảng các từ
             return words.length > 15; // Kiểm tra xem mảng có nhiều hơn 15 từ hay không
-        }
+        }, showCommentBar(post) {
+            this.showComment = !this.showComment
+            this.postId_Comment = post // Lấy id bình luận bài đăng 
+        }, async updatePost(updatedPost) {
+            const postIndex = this.posts.findIndex(post => post.content.POST_Id === updatedPost.content.POST_Id);
+            if (postIndex > -1) {
+                this.posts[postIndex] = updatedPost;
+            }
+        },
     },
     async mounted() {
         this.user = (await AuthenticationService.getUser(this.userid)).data
-        // this.posts = (await AuthenticationService.getposts()).data
         const postsData = (await AuthenticationService.getposts()).data;
         this.posts = postsData.map(post => {
-            const isCurrentUserLiked = post.likes.includes(this.userid);
+            const isCurrentUserLiked = post.likes.includes(this.userid); //
             return {
                 ...post,
                 isHeartFilled: isCurrentUserLiked,
@@ -184,18 +223,27 @@ export default {
                 showFullContent: this.isContentOverFifteenWords(post.content.POST_Content)
             };
         });
-
     }
 }
 </script>
 
 <style scoped>
+.Comment-prevent {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background: black;
+    opacity: .5;
+    top: 0;
+    z-index: 1000;
+}
+
 .HomeContent {
     top: 0;
     margin: 0;
     width: 100%;
     height: fit-content;
-    position: absolute;
+    position: relative;
 
     .HC-Post {
         width: 478px;
@@ -317,7 +365,6 @@ export default {
     scroll-snap-type: x mandatory;
     -ms-overflow-style: none;
     scrollbar-width: none;
-
 }
 
 .HC-Post-imgs .img-container {

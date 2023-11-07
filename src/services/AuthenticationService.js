@@ -44,5 +44,8 @@ export default {
   },
   unlike(id, postid) {
     return Api().put(`status/img/${id}`, postid);
+  },
+  APost(idpost) {
+    return Api().get(`post/${idpost}`);
   }
 };

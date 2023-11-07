@@ -334,7 +334,6 @@ export default {
     overflow-x: scroll;
     scroll-snap-type: x mandatory;
     -ms-overflow-style: none;
-    /* IE and Edge */
     scrollbar-width: none;
     border-bottom-left-radius: 14px;
 
