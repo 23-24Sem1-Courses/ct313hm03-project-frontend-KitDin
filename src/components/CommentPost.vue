@@ -7,7 +7,6 @@
                 <div class="img-container" v-for="(img, index) in postId.images" :key="index">
                     <img :src="loadImgPost(img)" class="img">
                 </div>
-
             </div>
 
             <div class="comment">
@@ -19,22 +18,24 @@
 
                 <!-- comment -->
                 <div class="frame">
-                    <div class="user-comment">
+
+                    <div class="user-comment" v-for="comment in comments">
                         <div class="user">
-                            <img class="user-Avatar" src="../../../server/public/uploads/avatar/user17.png" alt="">
-                            <p class="user-name">lau.vn</p>
-                            <p class="content-comment">Đep quá nè</p>
+                            <img class="user-Avatar" :src="loadImgUser(comment)" alt="">
+                            <p class="user-name">{{ comment.USER_NickName }}</p>
+                            <p class="content-comment">{{ comment.comment_Content }}</p>
                         </div>
                         <div class="reply">
-                            <p class="time">7h</p>
+                            <p class="time">{{ timeRequest(comment.comment_Time) }}</p>
                             <p class="btn-reply">Reply</p>
                         </div>
 
                         <div class="reply-content">
                             <hr>
-                            <p class="view-option" v-if="!isShowView" @click="showView">View replies (1)</p>
-                            <p class="view-option" v-if="isShowView" @click="showView">Hide</p>
-                            <div class="user" v-if="isShowView">
+                            <p class="view-option" v-if="!comment.isShowView" @click="showView(comment)">View replies (1)
+                            </p>
+                            <p class="view-option" v-if="comment.isShowView" @click="showView(comment)">Hide</p>
+                            <div class="user" v-if="comment.isShowView">
                                 <img class="user-Avatar" src="../../../server/public/uploads/avatar/user18.png" alt="">
                                 <p class="user-name">imKuer.vn</p>
                                 <p class="content-comment"> <span class="tag-name">@lau.vn</span> Cảm ơn nhé</p>
@@ -51,17 +52,24 @@
                         <i @click="like(postId)"
                             :class="['bi', 'icon', { 'bi-heart': !postId.isHeartFilled, 'bi-heart-fill': postId.isHeartFilled }]"></i>
 
-                        <i class="bi bi-chat icon"></i>
+                        <label for="textComment">
+                            <i class="bi bi-chat icon"></i>
+                        </label>
                     </div>
                     <div class="about">
-                        <h5>{{ postId.countLike }} likes</h5>
+                        <h5 v-if="postId.countLike > 0">{{ postId.countLike }} likes</h5>
+                        <h5 v-else>---</h5>
                         <p>{{ timeRequest(postId.content.POST_Time) }}
                         </p>
                     </div>
                     <div class="addComment">
-                        <input v-model="textComment" type="text" placeholder="Add a comment...">
-                        <button :class="char > 0 ? 'btn-active' : ``" class="btn-post"
+                        <input autocomplete="off" @keyup.enter="postComment" v-model="textComment" name="textComment"
+                            id="textComment" class="textComment" type="text" placeholder="Add a comment...">
+                        <button v-if="!showLoader && !showIcon" :class="char > 0 ? 'btn-active' : ``" class="btn-post"
                             @click="char > 0 ? postComment() : null">Post</button>
+                        <div v-if="showLoader" class="lds-dual-ring"></div>
+                        <i v-if="showIcon" class="tick-icon bi bi-check-circle-fill"
+                            :class="showIcon ? `rotate-scale-down` : ``"></i>
                     </div>
                 </div>
             </div>
@@ -77,16 +85,67 @@ import AuthenticationService from "../services/AuthenticationService"
 export default {
     data() {
         return {
-            isShowView: false,
             textComment: '',
             char: 0,
+            comments: [],
+            status: '',
+            showIcon: false,
+            showLoader: false
         };
     },
     methods: {
-        showView() {
-            this.isShowView = !this.isShowView
-        }, postComment() {
-            console.log(this.textComment);
+        makeRandomId(length) {
+            let result = ''
+            const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+            for (let i = 0; i < length; i++) {
+                result += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            return result;
+        },
+        showView(comment) {
+            comment.isShowView = !comment.isShowView
+        }, async postComment() {
+            try {
+
+                this.showLoader = true;
+
+                setTimeout(async () => {
+                    this.showLoader = false;
+                    this.showIcon = true;
+                    const response = await AuthenticationService.postComment(this.postId.content.POST_Id, {
+                        "comment_id": this.makeRandomId(Math.floor(Math.random() * 30)),
+                        "POST_id": this.postId.content.POST_Id,
+                        "USER_id": this.userid,
+                        "comment_Content": this.textComment,
+                    })
+                    this.status = response.data.status;
+
+                    if (this.status = 'success') {
+                        setTimeout(async () => {
+                            this.showIcon = false
+                            const commentsData = (await AuthenticationService.getComment(this.postId.content.POST_Id)).data;
+                            this.comments = commentsData.map(comment => {
+                                return {
+                                    ...comment,
+                                    isShowView: false,
+                                }
+                            })
+                            this.textComment = ''
+                        }, this.getRandomNumber(1500, 2000));
+                    }
+                }, this.getRandomNumber(500, 1000));
+
+
+
+
+
+
+
+            } catch (error) {
+                console.error("Error posting comment:", error);
+            }
+        }, getRandomNumber(min, max) {
+            return Math.round(Math.random() * (max - min) + min);
         }, async like(post) {
             post.isHeartFilled = !post.isHeartFilled
             try {
@@ -127,9 +186,18 @@ export default {
         loadImgPost: Function,
         loadImgUser: Function,
         timeRequest: Function,
-        // toggleHeart: Function
-    }, mounted() {
-        // console.log(this.postId);
+    }, async mounted() {
+        try {
+            const commentsData = (await AuthenticationService.getComment(this.postId.content.POST_Id)).data;
+            this.comments = commentsData.map(comment => {
+                return {
+                    ...comment,
+                    isShowView: false,
+                }
+            })
+        } catch (error) {
+            console.error(error);
+        }
     }, watch: {
         textComment(value) {
             this.char = value.length;
@@ -318,6 +386,14 @@ hr {
     color: red;
 }
 
+.excute .icons .bi-heart-fill:hover {
+    opacity: .8;
+}
+
+.excute .icons .bi-chat:hover {
+    opacity: .6;
+}
+
 .excute .about {
     font-size: 14px;
     margin: 0;
@@ -338,13 +414,14 @@ hr {
 
 .excute .addComment {
     border-top: #eae8e8 1px solid;
-    padding: 12px 0 0 0;
+
     display: flex;
     justify-content: space-between;
 }
 
 .excute .addComment input {
     margin-left: 22px;
+    padding: 12px 0 0 0;
     border: none;
     font-size: 14px;
     width: 90%;
@@ -352,6 +429,7 @@ hr {
 
 .excute .addComment .btn-post {
     border: none;
+    padding: 12px 0 0 0;
     padding-right: 22px;
     background-color: white;
     font-weight: bolder;
@@ -361,12 +439,79 @@ hr {
 .btn-active {
     color: rgb(17, 64, 151) !important;
 }
+
+.tick-icon {
+    font-size: 25px;
+    position: relative;
+    left: -22px;
+    top: 6px;
+    color: rgb(17, 64, 151) !important;
+    /* opacity: 0; */
+    transition: opacity 0.5s, transform 0.5s;
+}
+
+.rotate-scale-down {
+    -webkit-animation: rotate-scale-down 0.65s linear both;
+    animation: rotate-scale-down 0.65s linear both;
+}
+
+@-webkit-keyframes rotate-scale-down {
+    0% {
+        -webkit-transform: scale(1) rotateZ(0);
+        transform: scale(1) rotateZ(0);
+    }
+
+    50% {
+        -webkit-transform: scale(0.5) rotateZ(180deg);
+        transform: scale(0.5) rotateZ(180deg);
+    }
+
+    100% {
+        -webkit-transform: scale(1) rotateZ(360deg);
+        transform: scale(1) rotateZ(360deg);
+    }
+}
+
+@keyframes rotate-scale-down {
+    0% {
+        -webkit-transform: scale(1) rotateZ(0);
+        transform: scale(1) rotateZ(0);
+    }
+
+    50% {
+        -webkit-transform: scale(0.5) rotateZ(180deg);
+        transform: scale(0.5) rotateZ(180deg);
+    }
+
+    100% {
+        -webkit-transform: scale(1) rotateZ(360deg);
+        transform: scale(1) rotateZ(360deg);
+    }
+}
+
+.lds-dual-ring {
+    display: inline-block;
+}
+
+.lds-dual-ring:after {
+    content: " ";
+    display: block;
+    width: 20px;
+    height: 20px;
+    margin: 14px 24px 0 0;
+    border-radius: 50%;
+    border: 6px solid #fff;
+    border-color: #384d45 transparent #1f1d1d transparent;
+    animation: lds-dual-ring 1.2s linear infinite;
+}
+
+@keyframes lds-dual-ring {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
 </style>
-<!-- <div class="about">
-                        <h5>115 likes</h5>
-                        <p>OCTOBER 24</p>
-                    </div>
-<div class="addComment">
-                        <input type="text" placeholder="Add a comment...">
-                        <button class="btn-post">Post</button>
-                    </div> -->

@@ -57,7 +57,6 @@
 
             <NavRequestFriend></NavRequestFriend>
 
-
             <div v-if="showComment" @click="showCommentBar" class="Comment-prevent"></div>
             <CommentPost v-if="showComment" :postId="postId_Comment" :userid="userid" :loadImgPost="loadimgpost"
                 :toggleHeart="toggleHeart" :loadImgUser="loadimg" :timeRequest="timeRequest" @updatePost="updatePost" />

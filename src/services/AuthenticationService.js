@@ -47,5 +47,11 @@ export default {
   },
   APost(idpost) {
     return Api().get(`post/${idpost}`);
+  },
+  getComment(idpost) {
+    return Api().get(`post/comments/comment/${idpost}`);
+  },
+  postComment(idpost, comment) {
+    return Api().post(`post/comments/comment/${idpost}`, comment);
   }
 };
