@@ -19,26 +19,34 @@
                 <!-- comment -->
                 <div class="frame">
 
-                    <div class="user-comment" v-for="comment in comments">
+                    <div class="user-comment" v-for="comment in  comments ">
                         <div class="user">
-                            <img class="user-Avatar" :src="loadImgUser(comment)" alt="">
-                            <p class="user-name">{{ comment.USER_NickName }}</p>
-                            <p class="content-comment">{{ comment.comment_Content }}</p>
-                        </div>
-                        <div class="reply">
-                            <p class="time">{{ timeRequest(comment.comment_Time) }}</p>
-                            <p class="btn-reply">Reply</p>
+                            <img class="user-Avatar" :src="loadImgUser(comment.comment)" alt="">
+                            <p class="user-name">{{ comment.comment.USER_NickName }}</p>
+                            <p class="content-comment">{{ comment.comment.comment_Content }}</p>
+                            <div class="reply">
+                                <p class="time">{{ timeRequest(comment.comment.comment_Time) }}</p>
+                                <label for="textComment" class="btn-reply" @click="reply(comment)">Reply</label>
+                            </div>
                         </div>
 
-                        <div class="reply-content">
+
+                        <div class="reply-content" v-if="countReplyOnComment(comment)">
                             <hr>
-                            <p class="view-option" v-if="!comment.isShowView" @click="showView(comment)">View replies (1)
+                            <p class="view-option" v-if="!comment.isShowView" @click="showView(comment)">View replies ({{
+                                comment.reply.length }})
                             </p>
                             <p class="view-option" v-if="comment.isShowView" @click="showView(comment)">Hide</p>
-                            <div class="user" v-if="comment.isShowView">
-                                <img class="user-Avatar" src="../../../server/public/uploads/avatar/user18.png" alt="">
-                                <p class="user-name">imKuer.vn</p>
-                                <p class="content-comment"> <span class="tag-name">@lau.vn</span> Cảm ơn nhé</p>
+                            <div class="user" v-if="comment.isShowView" v-for="replys in comment.reply">
+                                <img class="user-Avatar" :src="loadImgUser(replys)" alt="">
+                                <p class="user-name">{{ replys.USER_NickName }}</p>
+                                <p class="content-comment"> <span class="tag-name">@{{ replys.reply_to.USER_NickName
+                                }}</span> {{
+    replys.CommentReply_Content }}</p>
+                                <div class="reply-more">
+                                    <p class="time">{{ timeRequest(replys.CommentReply_Time) }}</p>
+                                    <label for="textComment" class="btn-reply" @click="reply(comment)">Reply</label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -86,6 +94,8 @@ export default {
     data() {
         return {
             textComment: '',
+            repliedUsername: null,
+            replyComment: null,
             char: 0,
             comments: [],
             status: '',
@@ -94,6 +104,14 @@ export default {
         };
     },
     methods: {
+        reply(comment) {
+            this.textComment = `@${comment.comment.USER_NickName} `;
+            this.repliedUsername = comment.comment.USER_id;
+            this.replyComment = comment.comment.comment_id;
+        },
+        countReplyOnComment(comment) {
+            return comment.reply.length > 0
+        },
         makeRandomId(length) {
             let result = ''
             const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -106,41 +124,67 @@ export default {
             comment.isShowView = !comment.isShowView
         }, async postComment() {
             try {
+                if (this.textComment.startsWith('@')) {
+                    this.showLoader = true;
+                    const commentWithoutUsername = this.textComment.replace(/^@\S+\s/, '');
+                    setTimeout(async () => {
+                        this.showLoader = false;
+                        this.showIcon = true;
+                        const response = await AuthenticationService.replyComment(this.postId.content.POST_Id, {
+                            "POST_id": this.postId.content.POST_Id,
+                            "replyComment": this.replyComment,
+                            "USER_id": this.userid,
+                            "USER_id_reply_to": this.repliedUsername,
+                            "CommentReply_id": this.makeRandomId(Math.floor(Math.random() * 30)),
+                            "CommentReply_Content": commentWithoutUsername
+                        })
 
-                this.showLoader = true;
+                        this.status = response.data.status;
 
-                setTimeout(async () => {
-                    this.showLoader = false;
-                    this.showIcon = true;
-                    const response = await AuthenticationService.postComment(this.postId.content.POST_Id, {
-                        "comment_id": this.makeRandomId(Math.floor(Math.random() * 30)),
-                        "POST_id": this.postId.content.POST_Id,
-                        "USER_id": this.userid,
-                        "comment_Content": this.textComment,
-                    })
-                    this.status = response.data.status;
+                        if (this.status = 'success') {
+                            setTimeout(async () => {
+                                this.showIcon = false
+                                const commentsData = (await AuthenticationService.getComment(this.postId.content.POST_Id)).data;
+                                this.comments = commentsData.map(comment => {
+                                    return {
+                                        ...comment,
+                                        isShowView: true,
+                                    }
+                                })
+                                this.textComment = '';
+                                this.repliedUsername = null;
+                                this.replyComment = null;
+                            }, this.getRandomNumber(1500, 2000));
+                        }
+                    }, this.getRandomNumber(500, 1000));
+                } else {
+                    this.showLoader = true;
+                    setTimeout(async () => {
+                        this.showLoader = false;
+                        this.showIcon = true;
+                        const response = await AuthenticationService.postComment(this.postId.content.POST_Id, {
+                            "comment_id": this.makeRandomId(Math.floor(Math.random() * 30)),
+                            "POST_id": this.postId.content.POST_Id,
+                            "USER_id": this.userid,
+                            "comment_Content": this.textComment,
+                        })
+                        this.status = response.data.status;
 
-                    if (this.status = 'success') {
-                        setTimeout(async () => {
-                            this.showIcon = false
-                            const commentsData = (await AuthenticationService.getComment(this.postId.content.POST_Id)).data;
-                            this.comments = commentsData.map(comment => {
-                                return {
-                                    ...comment,
-                                    isShowView: false,
-                                }
-                            })
-                            this.textComment = ''
-                        }, this.getRandomNumber(1500, 2000));
-                    }
-                }, this.getRandomNumber(500, 1000));
-
-
-
-
-
-
-
+                        if (this.status === 'success') {
+                            setTimeout(async () => {
+                                this.showIcon = false
+                                const commentsData = (await AuthenticationService.getComment(this.postId.content.POST_Id)).data;
+                                this.comments = commentsData.map(comment => {
+                                    return {
+                                        ...comment,
+                                        isShowView: false,
+                                    }
+                                })
+                                this.textComment = ''
+                            }, this.getRandomNumber(1500, 2000));
+                        }
+                    }, this.getRandomNumber(500, 1000));
+                }
             } catch (error) {
                 console.error("Error posting comment:", error);
             }
@@ -195,6 +239,7 @@ export default {
                     isShowView: false,
                 }
             })
+            console.log(this.comments[0].reply[2]);
         } catch (error) {
             console.error(error);
         }
@@ -295,7 +340,7 @@ hr {
     text-align: center;
     position: relative;
     top: 50%;
-    transform: translate(10px, 10px);
+    transform: translate(10px, 2px);
     font-weight: 600;
     cursor: pointer;
 }
@@ -303,7 +348,7 @@ hr {
 .comment .user .content-comment {
     position: relative;
     top: 50%;
-    transform: translate(10px, 10px);
+    transform: translate(10px, 2px);
     margin-left: 3px;
 }
 
@@ -313,6 +358,7 @@ hr {
 }
 
 .user-comment {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     flex-direction: column;
@@ -323,26 +369,30 @@ hr {
 
 .user-comment .reply {
     display: flex;
-    position: relative;
+    position: absolute;
     width: 50px;
-    top: -18px;
+    top: 28px;
     left: 72px;
     color: #737373;
 }
 
+.user-comment .reply p {
+    margin: 0;
+}
+
 .user-comment .reply .time {
-    margin-right: 15px;
+    margin-right: 14px;
 }
 
 .user-comment .reply .btn-reply {
+    font-weight: 500;
     cursor: pointer;
 }
 
 .user-comment .reply-content {
-    margin: 0;
+    margin: 12px 0 12px 0;
     position: relative;
     left: 72px;
-    top: -12px;
     width: 30%;
 }
 
@@ -353,7 +403,8 @@ hr {
 
 .user-comment .reply-content .view-option {
     margin: 0;
-    margin-left: 48px;
+    padding-left: 48px;
+    height: fit-content;
     position: absolute;
     top: -10px;
     color: #737373;
@@ -362,8 +413,27 @@ hr {
 }
 
 .reply-content .user {
+    position: relative;
     margin: 0;
     padding: 25px 0 0 0;
+}
+
+.reply-content .user .reply-more {
+    display: flex;
+    position: absolute;
+    width: 50px;
+    top: 44px;
+    left: 52px;
+    color: #737373;
+}
+
+.reply-content .user .reply-more .time {
+    margin-right: 14px;
+}
+
+.reply-content .user .reply-more .btn-reply {
+    cursor: pointer;
+    font-weight: 500;
 }
 
 .excute {

@@ -51,7 +51,9 @@
 
                     </span>
                 </div>
-                <div @click="showCommentBar(post)" class="allcomment">View 16 comment</div>
+                <div @click="showCommentBar(post)" class="allcomment">View {{ post.countComment > 0 ? post.countComment : ''
+                }}
+                    comment</div>
                 <input class="inputcomment" type="text" @pointerenter="" placeholder="Add a comment...">
             </div>
 
@@ -59,7 +61,8 @@
 
             <div v-if="showComment" @click="showCommentBar" class="Comment-prevent"></div>
             <CommentPost v-if="showComment" :postId="postId_Comment" :userid="userid" :loadImgPost="loadimgpost"
-                :toggleHeart="toggleHeart" :loadImgUser="loadimg" :timeRequest="timeRequest" @updatePost="updatePost" />
+                :toggleHeart="toggleHeart" :loadImgUser="loadimg" :timeRequest="timeRequest" @updatePost="updatePost"
+                @resetPost="resetPost" />
         </div>
     </div>
 </template>

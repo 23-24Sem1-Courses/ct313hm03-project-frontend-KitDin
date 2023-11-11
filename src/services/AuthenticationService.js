@@ -53,5 +53,8 @@ export default {
   },
   postComment(idpost, comment) {
     return Api().post(`post/comments/comment/${idpost}`, comment);
+  },
+  replyComment(idpost, reply) {
+    return Api().put(`post/comments/comment/${idpost}`, reply);
   }
 };
